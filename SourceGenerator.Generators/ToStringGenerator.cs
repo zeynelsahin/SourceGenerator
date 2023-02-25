@@ -16,6 +16,9 @@ public class ToStringGenerator : IIncrementalGenerator
 
     private static void Execute(SourceProductionContext context, ClassDeclarationSyntax classDeclarationSyntax)
     {
+        var className = classDeclarationSyntax.Identifier.Text;
+        var fileName = $"{className}.g.cs";
 
+        context.AddSource(fileName, "//Generated!");
     }
 }
