@@ -1,5 +1,8 @@
 ﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using System.Linq.Expressions;
+using System.Text;
+
 namespace SourceGenerator.Generators;
 
 [Generator]
@@ -11,14 +14,29 @@ public class ToStringGenerator : IIncrementalGenerator
             predicate: static (node, _) => node is ClassDeclarationSyntax,
             transform: static (ctx, _) => (ClassDeclarationSyntax)ctx.Node);
 
-        context.RegisterSourceOutput(classes, static(ctx, source) => Execute(ctx, source));
+        context.RegisterSourceOutput(classes, static (ctx, source) => Execute(ctx, source));
     }
 
     private static void Execute(SourceProductionContext context, ClassDeclarationSyntax classDeclarationSyntax)
     {
-        var className = classDeclarationSyntax.Identifier.Text;
-        var fileName = $"{className}.g.cs";
+        if (classDeclarationSyntax.Parent is NamespaceDeclarationSyntax namespaceDeclarationSyntax)
+        {
 
-        context.AddSource(fileName, "//Generated!");
+            var nameSpace = namespaceDeclarationSyntax.Name.ToString();
+
+            var className = classDeclarationSyntax.Identifier.Text;
+            var fileName = $"{nameSpace}.{className}.g.cs";
+            var stringBuilder = new StringBuilder();
+
+            stringBuilder.Append($@"namespace {nameSpace}
+{{
+    partial class {className}
+    {{
+        
+    }}
+}}
+");
+            context.AddSource(fileName, stringBuilder.ToString());
+        }
     }
 }
