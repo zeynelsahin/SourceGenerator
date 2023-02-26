@@ -34,7 +34,7 @@ public class ToStringGenerator : IIncrementalGenerator
     {{
         public override string ToString()
         {{
-            return ""Hello from generated {className} class!""; 
+            return $""FirstName: {{FirstName}}""; 
         }}
     }}
 }}
