@@ -32,7 +32,10 @@ public class ToStringGenerator : IIncrementalGenerator
 {{
     partial class {className}
     {{
-        
+        public override string ToString()
+        {{
+            return ""Hello from generated {className} class!""; 
+        }}
     }}
 }}
 ");
