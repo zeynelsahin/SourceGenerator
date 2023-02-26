@@ -19,7 +19,7 @@ public class ToStringGenerator : IIncrementalGenerator
 
     private static void Execute(SourceProductionContext context, ClassDeclarationSyntax classDeclarationSyntax)
     {
-        if (classDeclarationSyntax.Parent is NamespaceDeclarationSyntax namespaceDeclarationSyntax)
+        if (classDeclarationSyntax.Parent is BaseNamespaceDeclarationSyntax namespaceDeclarationSyntax)
         {
 
             var nameSpace = namespaceDeclarationSyntax.Name.ToString();
