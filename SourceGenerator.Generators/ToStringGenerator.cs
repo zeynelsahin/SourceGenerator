@@ -1,5 +1,7 @@
 ﻿using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using System.Linq;
 using System.Linq.Expressions;
 using System.Text;
 
@@ -35,13 +37,27 @@ public class ToStringGenerator : IIncrementalGenerator
         public override string ToString()
         {{
             return $""");
+
+            var first = true;
             foreach (var memberDeclarationSyntax in classDeclarationSyntax.Members)
             {
-                  
-            }
-            stringBuilder.Append($"FirstName: {{FirstName}}");
+                if (memberDeclarationSyntax is PropertyDeclarationSyntax propertyDeclarationSyntax && propertyDeclarationSyntax.Modifiers.Any(SyntaxKind.PublicKeyword)) 
+                {
+                    if (first)
+                    {
+                        first = false;
+                    }
+                    else
+                    {
+                        stringBuilder.Append("; ");
+                    }
+                    var propertyName = propertyDeclarationSyntax.Identifier.Text;
 
-            stringBuilder.Append($@""");
+                    stringBuilder.Append($"{propertyName}:{{{propertyName}}}");
+
+                }
+            }
+            stringBuilder.Append($@""";
         }}
     }}
 }}
