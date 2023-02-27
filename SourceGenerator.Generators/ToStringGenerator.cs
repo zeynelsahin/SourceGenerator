@@ -34,7 +34,14 @@ public class ToStringGenerator : IIncrementalGenerator
     {{
         public override string ToString()
         {{
-            return $""FirstName: {{FirstName}}""; 
+            return $""");
+            foreach (var memberDeclarationSyntax in classDeclarationSyntax.Members)
+            {
+                  
+            }
+            stringBuilder.Append($"FirstName: {{FirstName}}");
+
+            stringBuilder.Append($@""");
         }}
     }}
 }}
