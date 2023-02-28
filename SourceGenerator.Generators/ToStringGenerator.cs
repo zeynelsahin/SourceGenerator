@@ -17,8 +17,16 @@ public class ToStringGenerator : IIncrementalGenerator
             transform: static (ctx, _) => (ClassDeclarationSyntax)ctx.Node);
 
         context.RegisterSourceOutput(classes, static (ctx, source) => Execute(ctx, source));
-    }
 
+        context.RegisterPostInitializationOutput(static (ctx) => PostInitializationOutput(ctx));
+    }
+    private static void PostInitializationOutput(IncrementalGeneratorPostInitializationContext context)
+    {
+        context.AddSource("SourceGenerator.Generators.GenerateToStringAttributte.g.cs", @"namespace SourceGenerator.Generators
+{
+    internal class GenerateToStringAttribute : System.Attribute { }   
+}");
+    }
     private static void Execute(SourceProductionContext context, ClassDeclarationSyntax classDeclarationSyntax)
     {
         if (classDeclarationSyntax.Parent is BaseNamespaceDeclarationSyntax namespaceDeclarationSyntax)
@@ -29,7 +37,10 @@ public class ToStringGenerator : IIncrementalGenerator
             var className = classDeclarationSyntax.Identifier.Text;
             var fileName = $"{nameSpace}.{className}.g.cs";
             var stringBuilder = new StringBuilder();
-
+            if (className.Equals("GenerateToStringAttribute"))
+            {
+                return;
+            }
             stringBuilder.Append($@"namespace {nameSpace}
 {{
     partial class {className}

@@ -1,5 +1,8 @@
-﻿namespace SourceGenerator.ConsoleApp.Model
+﻿using SourceGenerator.Generators;
+
+namespace SourceGenerator.ConsoleApp.Model
 {
+    [GenerateToString]
     public partial class Person
     {
         public string? FirstName { get; set; }
