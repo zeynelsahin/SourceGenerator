@@ -13,13 +13,35 @@ public class ToStringGenerator : IIncrementalGenerator
     public void Initialize(IncrementalGeneratorInitializationContext context)
     {
         var classes = context.SyntaxProvider.CreateSyntaxProvider(
-            predicate: static (node, _) => node is ClassDeclarationSyntax,
-            transform: static (ctx, _) => (ClassDeclarationSyntax)ctx.Node);
+            predicate: static (node, _) => IsSyntaxNode(node),
+            transform: static (ctx, _) => GetSemanticTarget(ctx)).Where(static target=> target is not null);
 
-        context.RegisterSourceOutput(classes, static (ctx, source) => Execute(ctx, source));
+        context.RegisterSourceOutput(classes, static (ctx, source) => Execute(ctx, source!));
 
         context.RegisterPostInitializationOutput(static (ctx) => PostInitializationOutput(ctx));
     }
+
+    private static bool IsSyntaxNode(SyntaxNode node)
+    {
+        return node is ClassDeclarationSyntax classDeclarationSyntax && classDeclarationSyntax.AttributeLists.Count> 0;
+    }
+    private static ClassDeclarationSyntax? GetSemanticTarget(GeneratorSyntaxContext context)
+    {
+        var classDeclarationSyntax= (ClassDeclarationSyntax)context.Node;
+        foreach (var attributeListSyntax in classDeclarationSyntax.AttributeLists)
+        {
+            foreach (var attribute in attributeListSyntax.Attributes)
+            {
+                var attributeName = attribute.Name.ToString();
+                if (attributeName=="GenerateToString"||attributeName=="GenerateToStringAttribute")
+                {
+                    return classDeclarationSyntax;
+                }
+            }
+        }
+        return null;
+    }
+
     private static void PostInitializationOutput(IncrementalGeneratorPostInitializationContext context)
     {
         context.AddSource("SourceGenerator.Generators.GenerateToStringAttributte.g.cs", @"namespace SourceGenerator.Generators
