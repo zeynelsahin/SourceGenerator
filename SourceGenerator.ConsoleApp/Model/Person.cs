@@ -7,7 +7,7 @@ namespace SourceGenerator.ConsoleApp.Model
     {
         public string? FirstName { get; set; }
         internal string? MiddleName { get; set; }
-        public string? LastName { get; set; }
+        public string? LastName { get; set; }//
         //public override string ToString()
         //{
         //    var stringBuilder = new StringBuilder();
@@ -28,5 +28,8 @@ namespace SourceGenerator.ConsoleApp.Model
         //    }
         //    return stringBuilder.ToString();
         //}
+    }
+    partial class Person {
+        public int Age { get; set; }
     }
 }

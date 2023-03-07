@@ -1,6 +1,8 @@
 ﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using SourceGenerator.Generators.Model;
+using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Text;
@@ -14,28 +16,40 @@ public class ToStringGenerator : IIncrementalGenerator
     {
         var classes = context.SyntaxProvider.CreateSyntaxProvider(
             predicate: static (node, _) => IsSyntaxNode(node),
-            transform: static (ctx, _) => GetSemanticTarget(ctx)).Where(static target=> target is not null);
+            transform: static (ctx, _) => GetSemanticTarget(ctx)).Where(static target => target is not null);
 
-        context.RegisterSourceOutput(classes, static (ctx, source) => Execute(ctx, source!));
+        context.RegisterSourceOutput(classes, static (ctx, source) => Execute(ctx, source));
 
         context.RegisterPostInitializationOutput(static (ctx) => PostInitializationOutput(ctx));
     }
 
     private static bool IsSyntaxNode(SyntaxNode node)
     {
-        return node is ClassDeclarationSyntax classDeclarationSyntax && classDeclarationSyntax.AttributeLists.Count> 0;
+        return node is ClassDeclarationSyntax classDeclarationSyntax && classDeclarationSyntax.AttributeLists.Count > 0;
     }
-    private static ClassDeclarationSyntax? GetSemanticTarget(GeneratorSyntaxContext context)
+    private static ClassToGenerate? GetSemanticTarget(GeneratorSyntaxContext context)
     {
-        var classDeclarationSyntax= (ClassDeclarationSyntax)context.Node;
-        foreach (var attributeListSyntax in classDeclarationSyntax.AttributeLists)
+        var classDeclarationSyntax = (ClassDeclarationSyntax)context.Node;
+        var classSymbol = context.SemanticModel.GetDeclaredSymbol(classDeclarationSyntax);
+        var attributeSymbol = context.SemanticModel.Compilation.GetTypeByMetadataName("SourceGenerator.Generators.GenerateToStringAttribute");
+        if (classSymbol is not null && attributeSymbol is not null)
         {
-            foreach (var attribute in attributeListSyntax.Attributes)
+            foreach (var attributeData in classSymbol.GetAttributes())
             {
-                var attributeName = attribute.Name.ToString();
-                if (attributeName=="GenerateToString"||attributeName=="GenerateToStringAttribute")
+                if (attributeSymbol.Equals(attributeData.AttributeClass, SymbolEqualityComparer.Default))
                 {
-                    return classDeclarationSyntax;
+                    var nameSpaceName = classSymbol.ContainingNamespace.ToDisplayString();
+                    var className = classSymbol.Name;
+                    var properrtNames = new List<string>();
+
+                    foreach (var memeberSymbol in classSymbol.GetMembers())
+                    {
+                        if (memeberSymbol.Kind == SymbolKind.Property && memeberSymbol.DeclaredAccessibility == Accessibility.Public)
+                        {
+                            properrtNames.Add(memeberSymbol.Name);
+                        }
+                    }
+                    return new ClassToGenerate(nameSpaceName, className, properrtNames);
                 }
             }
         }
@@ -49,21 +63,30 @@ public class ToStringGenerator : IIncrementalGenerator
     internal class GenerateToStringAttribute : System.Attribute { }   
 }");
     }
-    private static void Execute(SourceProductionContext context, ClassDeclarationSyntax classDeclarationSyntax)
+
+    private static Dictionary<string, int> _countPerFileName = new Dictionary<string, int>();
+    private static void Execute(SourceProductionContext context, ClassToGenerate? classToGenerate)
     {
-        if (classDeclarationSyntax.Parent is BaseNamespaceDeclarationSyntax namespaceDeclarationSyntax)
+        if (classToGenerate is null)
         {
+            return;
+        }
 
-            var nameSpace = namespaceDeclarationSyntax.Name.ToString();
+        var nameSpace = classToGenerate.NameSpaceName;
 
-            var className = classDeclarationSyntax.Identifier.Text;
-            var fileName = $"{nameSpace}.{className}.g.cs";
-            var stringBuilder = new StringBuilder();
-            if (className.Equals("GenerateToStringAttribute"))
-            {
-                return;
-            }
-            stringBuilder.Append($@"namespace {nameSpace}
+        var className = classToGenerate.ClassName;
+        var fileName = $"{nameSpace}.{className}.g.cs";
+        if (_countPerFileName.ContainsKey(fileName))
+        {
+            _countPerFileName[fileName]++; 
+        }
+        else
+        {
+            _countPerFileName.Add(fileName, 1); 
+        }
+        var stringBuilder = new StringBuilder();
+        stringBuilder.Append($@"//Generation count : {_countPerFileName[fileName]}
+namespace {nameSpace}
 {{
     partial class {className}
     {{
@@ -71,31 +94,27 @@ public class ToStringGenerator : IIncrementalGenerator
         {{
             return $""");
 
-            var first = true;
-            foreach (var memberDeclarationSyntax in classDeclarationSyntax.Members)
+        var first = true;
+        foreach (var propertyName in classToGenerate.PropertyNames)
+        {
+
+            if (first)
             {
-                if (memberDeclarationSyntax is PropertyDeclarationSyntax propertyDeclarationSyntax && propertyDeclarationSyntax.Modifiers.Any(SyntaxKind.PublicKeyword)) 
-                {
-                    if (first)
-                    {
-                        first = false;
-                    }
-                    else
-                    {
-                        stringBuilder.Append("; ");
-                    }
-                    var propertyName = propertyDeclarationSyntax.Identifier.Text;
-
-                    stringBuilder.Append($"{propertyName}:{{{propertyName}}}");
-
-                }
+                first = false;
             }
-            stringBuilder.Append($@""";
+            else
+            {
+                stringBuilder.Append("; ");
+            }
+
+            stringBuilder.Append($"{propertyName}:{{{propertyName}}}");
+
+        }
+        stringBuilder.Append($@""";
         }}
     }}
 }}
 ");
-            context.AddSource(fileName, stringBuilder.ToString());
-        }
+        context.AddSource(fileName, stringBuilder.ToString());
     }
 }
