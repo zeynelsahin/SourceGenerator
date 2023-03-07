@@ -3,6 +3,7 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using SourceGenerator.Generators.Model;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Text;
@@ -16,7 +17,7 @@ public class ToStringGenerator : IIncrementalGenerator
     {
         var classes = context.SyntaxProvider.CreateSyntaxProvider(
             predicate: static (node, _) => IsSyntaxNode(node),
-            transform: static (ctx, _) => GetSemanticTarget(ctx)).Where(static target => target is not null);
+            transform: static (ctx, _) => GetSemanticTarget(ctx)).Where(static target => target is not null).Collect();
 
         context.RegisterSourceOutput(classes, static (ctx, source) => Execute(ctx, source));
 
@@ -65,27 +66,29 @@ public class ToStringGenerator : IIncrementalGenerator
     }
 
     private static Dictionary<string, int> _countPerFileName = new Dictionary<string, int>();
-    private static void Execute(SourceProductionContext context, ClassToGenerate? classToGenerate)
+    private static void Execute(SourceProductionContext context, ImmutableArray<ClassToGenerate?> classesToGenerate)
     {
-        if (classToGenerate is null)
+        foreach (var classToGenerate in classesToGenerate)
         {
-            return;
-        }
+            if (classToGenerate is null)
+            {
+                return;
+            }
 
-        var nameSpace = classToGenerate.NameSpaceName;
+            var nameSpace = classToGenerate.NameSpaceName;
 
-        var className = classToGenerate.ClassName;
-        var fileName = $"{nameSpace}.{className}.g.cs";
-        if (_countPerFileName.ContainsKey(fileName))
-        {
-            _countPerFileName[fileName]++; 
-        }
-        else
-        {
-            _countPerFileName.Add(fileName, 1); 
-        }
-        var stringBuilder = new StringBuilder();
-        stringBuilder.Append($@"//Generation count : {_countPerFileName[fileName]}
+            var className = classToGenerate.ClassName;
+            var fileName = $"{nameSpace}.{className}.g.cs";
+            if (_countPerFileName.ContainsKey(fileName))
+            {
+                _countPerFileName[fileName]++;
+            }
+            else
+            {
+                _countPerFileName.Add(fileName, 1);
+            }
+            var stringBuilder = new StringBuilder();
+            stringBuilder.Append($@"//Generation count : {_countPerFileName[fileName]}
 namespace {nameSpace}
 {{
     partial class {className}
@@ -94,27 +97,28 @@ namespace {nameSpace}
         {{
             return $""");
 
-        var first = true;
-        foreach (var propertyName in classToGenerate.PropertyNames)
-        {
-
-            if (first)
+            var first = true;
+            foreach (var propertyName in classToGenerate.PropertyNames)
             {
-                first = false;
-            }
-            else
-            {
-                stringBuilder.Append("; ");
-            }
 
-            stringBuilder.Append($"{propertyName}:{{{propertyName}}}");
+                if (first)
+                {
+                    first = false;
+                }
+                else
+                {
+                    stringBuilder.Append("; ");
+                }
 
-        }
-        stringBuilder.Append($@""";
+                stringBuilder.Append($"{propertyName}:{{{propertyName}}}");
+
+            }
+            stringBuilder.Append($@""";
         }}
     }}
 }}
 ");
-        context.AddSource(fileName, stringBuilder.ToString());
+            context.AddSource(fileName, stringBuilder.ToString());
+        }
     }
 }
